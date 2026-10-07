@@ -1,0 +1,595 @@
+Siap. Berdasarkan migration dan seeder sebelumnya, berikut isi **semua model beserta relasinya**. Saya buat menggunakan relasi Eloquent Laravel dan `$fillable` agar kompatibel dengan `Model::create()` yang digunakan pada seeder.
+
+Struktur file:
+
+```text
+app/Models/
+├── User.php
+├── Jurusan.php
+├── Periode.php
+├── Siswa.php
+├── Kriteria.php
+├── AhpPerbandingan.php
+├── AhpHasil.php
+├── Nilai.php
+└── HasilRanking.php
+```
+
+## 1. `Jurusan.php`
+
+```php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Jurusan extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'kode',
+        'nama',
+    ];
+
+    /**
+     * Jurusan memiliki banyak siswa.
+     */
+    public function siswas(): HasMany
+    {
+        return $this->hasMany(Siswa::class);
+    }
+}
+```
+
+---
+
+## 2. `Periode.php`
+
+```php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Periode extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'nama',
+        'tahun_ajaran',
+        'semester',
+        'is_aktif',
+    ];
+
+    protected $casts = [
+        'is_aktif' => 'boolean',
+    ];
+
+    /**
+     * Periode memiliki banyak nilai.
+     */
+    public function nilais(): HasMany
+    {
+        return $this->hasMany(Nilai::class);
+    }
+
+    /**
+     * Periode memiliki banyak hasil ranking.
+     */
+    public function hasilRankings(): HasMany
+    {
+        return $this->hasMany(HasilRanking::class);
+    }
+
+    /**
+     * Scope untuk mengambil periode yang aktif.
+     *
+     * Penggunaan:
+     * Periode::aktif()->first();
+     */
+    public function scopeAktif(Builder $query): Builder
+    {
+        return $query->where('is_aktif', true);
+    }
+}
+```
+
+---
+
+## 3. `Siswa.php`
+
+```php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Siswa extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'nis',
+        'nama',
+        'jenis_kelamin',
+        'tanggal_lahir',
+        'kelas',
+        'jurusan_id',
+    ];
+
+    protected $casts = [
+        'tanggal_lahir' => 'date',
+    ];
+
+    /**
+     * Siswa termasuk dalam satu jurusan.
+     */
+    public function jurusan(): BelongsTo
+    {
+        return $this->belongsTo(Jurusan::class);
+    }
+
+    /**
+     * Siswa memiliki banyak nilai.
+     */
+    public function nilais(): HasMany
+    {
+        return $this->hasMany(Nilai::class);
+    }
+
+    /**
+     * Siswa memiliki banyak hasil ranking.
+     */
+    public function hasilRankings(): HasMany
+    {
+        return $this->hasMany(HasilRanking::class);
+    }
+}
+```
+
+---
+
+## 4. `Kriteria.php`
+
+Pada model ini terdapat **dua relasi ke tabel `ahp_perbandingans`**, karena satu kriteria bisa menjadi `kriteria_1` sekaligus `kriteria_2`.
+
+```php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Kriteria extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'kode',
+        'nama',
+        'tipe',
+        'bobot',
+        'urutan',
+    ];
+
+    /**
+     * Kriteria memiliki banyak nilai.
+     */
+    public function nilais(): HasMany
+    {
+        return $this->hasMany(Nilai::class);
+    }
+
+    /**
+     * Kriteria sebagai kriteria pertama dalam perbandingan AHP.
+     */
+    public function ahpPerbandinganSebagaiKriteria1(): HasMany
+    {
+        return $this->hasMany(
+            AhpPerbandingan::class,
+            'kriteria_1_id'
+        );
+    }
+
+    /**
+     * Kriteria sebagai kriteria kedua dalam perbandingan AHP.
+     */
+    public function ahpPerbandinganSebagaiKriteria2(): HasMany
+    {
+        return $this->hasMany(
+            AhpPerbandingan::class,
+            'kriteria_2_id'
+        );
+    }
+}
+```
+
+Jadi nantinya bisa dipanggil:
+
+```php
+$kriteria->ahpPerbandinganSebagaiKriteria1;
+```
+
+atau:
+
+```php
+$kriteria->ahpPerbandinganSebagaiKriteria2;
+```
+
+---
+
+# 5. `AhpPerbandingan.php`
+
+```php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class AhpPerbandingan extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'kriteria_1_id',
+        'kriteria_2_id',
+        'nilai',
+    ];
+
+    /**
+     * Relasi ke kriteria pertama.
+     */
+    public function kriteria1(): BelongsTo
+    {
+        return $this->belongsTo(
+            Kriteria::class,
+            'kriteria_1_id'
+        );
+    }
+
+    /**
+     * Relasi ke kriteria kedua.
+     */
+    public function kriteria2(): BelongsTo
+    {
+        return $this->belongsTo(
+            Kriteria::class,
+            'kriteria_2_id'
+        );
+    }
+}
+```
+
+Dengan ini:
+
+```php
+$perbandingan->kriteria1->nama;
+$perbandingan->kriteria2->nama;
+$perbandingan->nilai;
+```
+
+Misalnya data:
+
+```text
+C1 vs C2 = 3
+```
+
+maka:
+
+```php
+$perbandingan->kriteria1->kode; // C1
+$perbandingan->kriteria2->kode; // C2
+$perbandingan->nilai;            // 3
+```
+
+---
+
+# 6. `AhpHasil.php`
+
+```php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class AhpHasil extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'lambda_max',
+        'ci',
+        'ri',
+        'cr',
+        'is_konsisten',
+        'detail',
+        'is_aktif',
+    ];
+
+    protected $casts = [
+        'detail' => 'array',
+        'is_konsisten' => 'boolean',
+        'is_aktif' => 'boolean',
+    ];
+
+    /**
+     * AHP Hasil memiliki banyak hasil ranking.
+     */
+    public function hasilRankings(): HasMany
+    {
+        return $this->hasMany(HasilRanking::class);
+    }
+
+    /**
+     * Scope untuk mengambil hasil AHP yang aktif.
+     *
+     * Penggunaan:
+     * AhpHasil::aktif()->first();
+     */
+    public function scopeAktif(Builder $query): Builder
+    {
+        return $query->where('is_aktif', true);
+    }
+}
+```
+
+---
+
+# 7. `Nilai.php`
+
+```php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class Nilai extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'siswa_id',
+        'periode_id',
+        'kriteria_id',
+        'nilai',
+    ];
+
+    /**
+     * Nilai dimiliki oleh satu siswa.
+     */
+    public function siswa(): BelongsTo
+    {
+        return $this->belongsTo(Siswa::class);
+    }
+
+    /**
+     * Nilai dimiliki oleh satu periode.
+     */
+    public function periode(): BelongsTo
+    {
+        return $this->belongsTo(Periode::class);
+    }
+
+    /**
+     * Nilai dimiliki oleh satu kriteria.
+     */
+    public function kriteria(): BelongsTo
+    {
+        return $this->belongsTo(Kriteria::class);
+    }
+}
+```
+
+---
+
+# 8. `HasilRanking.php`
+
+```php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class HasilRanking extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'periode_id',
+        'siswa_id',
+        'ahp_hasil_id',
+        'nilai_akhir',
+        'ranking_umum',
+        'ranking_jurusan',
+        'detail',
+    ];
+
+    protected $casts = [
+        'detail' => 'array',
+    ];
+
+    /**
+     * Hasil ranking dimiliki oleh satu siswa.
+     */
+    public function siswa(): BelongsTo
+    {
+        return $this->belongsTo(Siswa::class);
+    }
+
+    /**
+     * Hasil ranking dimiliki oleh satu periode.
+     */
+    public function periode(): BelongsTo
+    {
+        return $this->belongsTo(Periode::class);
+    }
+
+    /**
+     * Hasil ranking menggunakan satu hasil AHP.
+     */
+    public function ahpHasil(): BelongsTo
+    {
+        return $this->belongsTo(AhpHasil::class);
+    }
+}
+```
+
+---
+
+# 9. `User.php`
+
+Untuk `User`, karena ini model bawaan Laravel, sebenarnya cukup mempertahankan model bawaan Laravel. Jika ingin disesuaikan dengan kebutuhan sistem Guru, bisa menjadi:
+
+```php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+
+class User extends Authenticatable
+{
+    use HasFactory, Notifiable;
+
+    protected $fillable = [
+        'name',
+        'email',
+        'password',
+    ];
+
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+        ];
+    }
+}
+```
+
+Pada Laravel versi modern, bagian:
+
+```php
+'password' => 'hashed',
+```
+
+memungkinkan password otomatis di-hash ketika diisi melalui Eloquent.
+
+Namun karena pada `UserSeeder` sebelumnya kita menggunakan:
+
+```php
+'password' => Hash::make('password123'),
+```
+
+itu juga tetap aman.
+
+---
+
+# Ringkasan Relasi
+
+Setelah seluruh model dibuat, struktur relasinya menjadi:
+
+```text
+Jurusan
+   │
+   └── hasMany()
+         │
+         ▼
+       Siswa
+       ├── belongsTo Jurusan
+       ├── hasMany Nilai
+       └── hasMany HasilRanking
+
+
+Periode
+   ├── hasMany Nilai
+   ├── hasMany HasilRanking
+   └── scopeAktif()
+
+
+Kriteria
+   ├── hasMany Nilai
+   ├── hasMany AhpPerbandingan sebagai kriteria_1
+   └── hasMany AhpPerbandingan sebagai kriteria_2
+
+
+AhpPerbandingan
+   ├── belongsTo Kriteria sebagai kriteria1
+   └── belongsTo Kriteria sebagai kriteria2
+
+
+AhpHasil
+   ├── hasMany HasilRanking
+   └── scopeAktif()
+
+
+Nilai
+   ├── belongsTo Siswa
+   ├── belongsTo Periode
+   └── belongsTo Kriteria
+
+
+HasilRanking
+   ├── belongsTo Siswa
+   ├── belongsTo Periode
+   └── belongsTo AhpHasil
+```
+
+Dengan model tersebut, contoh eager loading juga sudah bisa langsung digunakan:
+
+```php
+$siswas = Siswa::with([
+    'jurusan',
+    'nilais.kriteria',
+    'hasilRankings.ahpHasil'
+])->get();
+```
+
+Dan untuk mengambil periode aktif:
+
+```php
+$periode = Periode::aktif()->first();
+```
+
+Sedangkan AHP aktif:
+
+```php
+$ahpHasil = AhpHasil::aktif()->first();
+```
+
+Satu hal penting untuk tahap berikutnya: **model `Kriteria` belum memiliki relasi langsung ke `AhpHasil`**, dan itu memang sesuai struktur tabel yang kamu berikan, karena bobot hasil AHP disimpan pada kolom `bobot` di `kriterias`, sementara `ahp_hasils.detail` menyimpan snapshot perhitungan.

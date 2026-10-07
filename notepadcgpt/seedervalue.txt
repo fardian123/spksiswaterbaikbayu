@@ -1,0 +1,309 @@
+Siap. Karena struktur migration sebelumnya sudah dibuat, seedernya bisa langsung dibuat seperti berikut. Saya gunakan **Laravel native `Hash::make()`** untuk password guru.
+
+## 1. `UserSeeder.php`
+
+Buat dengan:
+
+```bash
+php artisan make:seeder UserSeeder
+```
+
+Isi `database/seeders/UserSeeder.php`:
+
+```php
+<?php
+
+namespace Database\Seeders;
+
+use App\Models\User;
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
+
+class UserSeeder extends Seeder
+{
+    public function run(): void
+    {
+        User::create([
+            'name' => 'Guru',
+            'email' => 'guru@sekolah.test',
+            'password' => Hash::make('password123'),
+        ]);
+    }
+}
+```
+
+Akun yang dibuat:
+
+```text
+Email    : guru@sekolah.test
+Password : password123
+```
+
+Password akan tersimpan dalam database dalam bentuk **hash**, bukan plaintext.
+
+---
+
+## 2. `JurusanSeeder.php`
+
+Buat:
+
+```bash
+php artisan make:seeder JurusanSeeder
+```
+
+Isi:
+
+```php
+<?php
+
+namespace Database\Seeders;
+
+use App\Models\Jurusan;
+use Illuminate\Database\Seeder;
+
+class JurusanSeeder extends Seeder
+{
+    public function run(): void
+    {
+        Jurusan::create([
+            'kode' => 'IPA',
+            'nama' => 'Ilmu Pengetahuan Alam',
+        ]);
+
+        Jurusan::create([
+            'kode' => 'IPS',
+            'nama' => 'Ilmu Pengetahuan Sosial',
+        ]);
+
+        Jurusan::create([
+            'kode' => 'TKJ',
+            'nama' => 'Teknik Komputer dan Jaringan',
+        ]);
+    }
+}
+```
+
+Data yang akan masuk:
+
+| Kode | Nama                         |
+| ---- | ---------------------------- |
+| IPA  | Ilmu Pengetahuan Alam        |
+| IPS  | Ilmu Pengetahuan Sosial      |
+| TKJ  | Teknik Komputer dan Jaringan |
+
+---
+
+## 3. `PeriodeSeeder.php`
+
+Buat:
+
+```bash
+php artisan make:seeder PeriodeSeeder
+```
+
+Isi:
+
+```php
+<?php
+
+namespace Database\Seeders;
+
+use App\Models\Periode;
+use Illuminate\Database\Seeder;
+
+class PeriodeSeeder extends Seeder
+{
+    public function run(): void
+    {
+        Periode::create([
+            'nama' => 'Semester Ganjil 2025/2026',
+            'tahun_ajaran' => '2025/2026',
+            'semester' => 'Ganjil',
+            'is_aktif' => true,
+        ]);
+    }
+}
+```
+
+Hasilnya:
+
+```text
+Nama          : Semester Ganjil 2025/2026
+Tahun Ajaran  : 2025/2026
+Semester      : Ganjil
+Status        : Aktif
+```
+
+---
+
+## 4. `KriteriaSeeder.php`
+
+Buat:
+
+```bash
+php artisan make:seeder KriteriaSeeder
+```
+
+Isi:
+
+```php
+<?php
+
+namespace Database\Seeders;
+
+use App\Models\Kriteria;
+use Illuminate\Database\Seeder;
+
+class KriteriaSeeder extends Seeder
+{
+    public function run(): void
+    {
+        Kriteria::create([
+            'kode' => 'C1',
+            'nama' => 'Nilai Akademik',
+            'tipe' => 'benefit',
+            'bobot' => 0,
+            'urutan' => 1,
+        ]);
+
+        Kriteria::create([
+            'kode' => 'C2',
+            'nama' => 'Kehadiran',
+            'tipe' => 'benefit',
+            'bobot' => 0,
+            'urutan' => 2,
+        ]);
+
+        Kriteria::create([
+            'kode' => 'C3',
+            'nama' => 'Sikap',
+            'tipe' => 'benefit',
+            'bobot' => 0,
+            'urutan' => 3,
+        ]);
+
+        Kriteria::create([
+            'kode' => 'C4',
+            'nama' => 'Keaktifan',
+            'tipe' => 'benefit',
+            'bobot' => 0,
+            'urutan' => 4,
+        ]);
+    }
+}
+```
+
+Hasilnya:
+
+| Kode | Kriteria       | Tipe    | Bobot | Urutan |
+| ---- | -------------- | ------- | ----: | -----: |
+| C1   | Nilai Akademik | benefit |     0 |      1 |
+| C2   | Kehadiran      | benefit |     0 |      2 |
+| C3   | Sikap          | benefit |     0 |      3 |
+| C4   | Keaktifan      | benefit |     0 |      4 |
+
+Bobot sengaja dibuat `0` karena nantinya **bobot akan dihasilkan dari proses AHP**, bukan ditentukan manual melalui seeder.
+
+---
+
+# 5. `DatabaseSeeder.php`
+
+Ini bagian yang menggabungkan seluruh seeder.
+
+Isi `database/seeders/DatabaseSeeder.php`:
+
+```php
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+
+class DatabaseSeeder extends Seeder
+{
+    public function run(): void
+    {
+        $this->call([
+            UserSeeder::class,
+            JurusanSeeder::class,
+            PeriodeSeeder::class,
+            KriteriaSeeder::class,
+        ]);
+    }
+}
+```
+
+Urutannya sudah sesuai dengan kebutuhan database:
+
+```text
+UserSeeder
+    ↓
+JurusanSeeder
+    ↓
+PeriodeSeeder
+    ↓
+KriteriaSeeder
+```
+
+---
+
+# 6. Jalankan Seeder
+
+Setelah semua file selesai, jalankan:
+
+```bash
+php artisan db:seed
+```
+
+Atau kalau ingin **menghapus seluruh data, menjalankan migration ulang, kemudian menjalankan semua seeder**:
+
+```bash
+php artisan migrate:fresh --seed
+```
+
+Setelah itu data awal akan menjadi:
+
+```text
+users
+└── Guru
+    ├── email    : guru@sekolah.test
+    └── password : password123
+
+jurusans
+├── IPA
+├── IPS
+└── TKJ
+
+periodes
+└── Semester Ganjil 2025/2026
+    └── aktif
+
+kriterias
+├── C1 - Nilai Akademik
+├── C2 - Kehadiran
+├── C3 - Sikap
+└── C4 - Keaktifan
+```
+
+### Catatan Model
+
+Seeder di atas mengasumsikan model berikut sudah tersedia:
+
+```text
+app/Models/User.php
+app/Models/Jurusan.php
+app/Models/Periode.php
+app/Models/Kriteria.php
+```
+
+Kalau modelnya **belum dibuat**, jalankan:
+
+```bash
+php artisan make:model Jurusan
+php artisan make:model Periode
+php artisan make:model Kriteria
+```
+
+Untuk `User`, tidak perlu membuat lagi karena Laravel sudah menyediakan `App\Models\User`.
+
+**Satu hal yang perlu diperhatikan:** kalau ini akan kamu lanjutkan ke sistem AHP-SAW, saya sarankan berikutnya kita buat **Seeder `AHPPerbandinganSeeder`** juga, berisi nilai perbandingan C1–C4 (skala Saaty), sehingga setelah `migrate:fresh --seed` kamu sudah punya data awal untuk langsung menguji proses perhitungan AHP.

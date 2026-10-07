@@ -1,0 +1,468 @@
+Bisa. Saya buatkan **masing-masing file migration Laravel** berdasarkan struktur yang kamu berikan. Saya asumsikan project menggunakan **Laravel 12**, tetapi kode migration ini juga kompatibel dengan Laravel versi modern lainnya.
+
+Urutan migration penting karena ada relasi foreign key. Gunakan urutan berikut:
+
+```text
+1. users
+2. jurusans
+3. periodes
+4. siswas
+5. kriterias
+6. ahp_perbandingans
+7. ahp_hasils
+8. nilais
+9. hasil_rankings
+```
+
+### 1. `create_users_table.php`
+
+Kalau menggunakan Laravel Breeze, migration `users` biasanya **sudah tersedia**, jadi tidak perlu membuat ulang. Struktur bawaan Laravel dapat digunakan:
+
+```php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('users', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->string('email')->unique();
+            $table->timestamp('email_verified_at')->nullable();
+            $table->string('password');
+            $table->rememberToken();
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('users');
+    }
+};
+```
+
+> Jika migration `users` bawaan Laravel sudah ada, **jangan membuat migration users kedua**. Cukup sesuaikan migration bawaan tersebut.
+
+---
+
+### 2. `create_jurusans_table.php`
+
+```php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('jurusans', function (Blueprint $table) {
+            $table->id();
+            $table->string('kode', 10)->unique();
+            $table->string('nama', 100);
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('jurusans');
+    }
+};
+```
+
+---
+
+### 3. `create_periodes_table.php`
+
+```php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('periodes', function (Blueprint $table) {
+            $table->id();
+            $table->string('nama', 100);
+            $table->string('tahun_ajaran', 20);
+            $table->enum('semester', ['Ganjil', 'Genap']);
+            $table->boolean('is_aktif')->default(false);
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('periodes');
+    }
+};
+```
+
+---
+
+### 4. `create_siswas_table.php`
+
+Relasi `jurusan_id` diarahkan ke tabel `jurusans`.
+
+```php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('siswas', function (Blueprint $table) {
+            $table->id();
+
+            $table->string('nis', 20)->unique();
+            $table->string('nama', 150);
+
+            $table->enum('jenis_kelamin', ['L', 'P'])->nullable();
+            $table->date('tanggal_lahir')->nullable();
+
+            $table->string('kelas', 20);
+
+            $table->foreignId('jurusan_id')
+                ->constrained('jurusans')
+                ->cascadeOnUpdate()
+                ->restrictOnDelete();
+
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('siswas');
+    }
+};
+```
+
+---
+
+### 5. `create_kriterias_table.php`
+
+```php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('kriterias', function (Blueprint $table) {
+            $table->id();
+
+            $table->string('kode', 5)->unique();
+            $table->string('nama', 100);
+
+            $table->enum('tipe', ['benefit', 'cost'])
+                ->default('benefit');
+
+            $table->decimal('bobot', 10, 6)
+                ->default(0);
+
+            $table->unsignedTinyInteger('urutan');
+
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('kriterias');
+    }
+};
+```
+
+---
+
+### 6. `create_ahp_perbandingans_table.php`
+
+Karena yang disimpan hanya **segitiga atas matriks AHP**, pasangan kriteria dibuat unik.
+
+```php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('ahp_perbandingans', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('kriteria_1_id')
+                ->constrained('kriterias')
+                ->cascadeOnDelete();
+
+            $table->foreignId('kriteria_2_id')
+                ->constrained('kriterias')
+                ->cascadeOnDelete();
+
+            $table->decimal('nilai', 8, 4);
+
+            $table->unique([
+                'kriteria_1_id',
+                'kriteria_2_id'
+            ]);
+
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('ahp_perbandingans');
+    }
+};
+```
+
+Dengan 4 kriteria, data yang disimpan hanya:
+
+```text
+C1 - C2
+C1 - C3
+C1 - C4
+C2 - C3
+C2 - C4
+C3 - C4
+```
+
+Sedangkan diagonal dan segitiga bawah dapat dihitung saat proses AHP.
+
+---
+
+### 7. `create_ahp_hasils_table.php`
+
+Tabel ini menyimpan **riwayat setiap eksekusi/perhitungan AHP**.
+
+```php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('ahp_hasils', function (Blueprint $table) {
+            $table->id();
+
+            $table->decimal('lambda_max', 10, 6);
+            $table->decimal('ci', 10, 6);
+            $table->decimal('ri', 6, 2);
+            $table->decimal('cr', 10, 6);
+
+            $table->boolean('is_konsisten');
+
+            $table->json('detail');
+
+            $table->boolean('is_aktif')
+                ->default(false);
+
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('ahp_hasils');
+    }
+};
+```
+
+---
+
+### 8. `create_nilais_table.php`
+
+Tabel ini menghubungkan:
+
+```text
+Siswa
+   ↓
+Periode
+   ↓
+Kriteria
+   ↓
+Nilai
+```
+
+```php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('nilais', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('siswa_id')
+                ->constrained('siswas')
+                ->cascadeOnDelete();
+
+            $table->foreignId('periode_id')
+                ->constrained('periodes')
+                ->cascadeOnDelete();
+
+            $table->foreignId('kriteria_id')
+                ->constrained('kriterias')
+                ->cascadeOnDelete();
+
+            $table->decimal('nilai', 6, 2);
+
+            $table->unique([
+                'siswa_id',
+                'periode_id',
+                'kriteria_id'
+            ]);
+
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('nilais');
+    }
+};
+```
+
+---
+
+### 9. `create_hasil_rankings_table.php`
+
+Ini adalah tabel hasil akhir perhitungan **SAW**, sekaligus menyimpan ranking umum dan ranking berdasarkan jurusan.
+
+```php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('hasil_rankings', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('periode_id')
+                ->constrained('periodes')
+                ->cascadeOnDelete();
+
+            $table->foreignId('siswa_id')
+                ->constrained('siswas')
+                ->cascadeOnDelete();
+
+            $table->foreignId('ahp_hasil_id')
+                ->constrained('ahp_hasils')
+                ->cascadeOnDelete();
+
+            $table->decimal('nilai_akhir', 10, 6);
+
+            $table->unsignedInteger('ranking_umum');
+            $table->unsignedInteger('ranking_jurusan');
+
+            $table->json('detail');
+
+            $table->unique([
+                'periode_id',
+                'siswa_id'
+            ]);
+
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('hasil_rankings');
+    }
+};
+```
+
+## Urutan file migration
+
+Karena Laravel menjalankan migration berdasarkan timestamp pada nama file, sebaiknya nama filenya dibuat seperti:
+
+```text
+xxxx_xx_xx_000001_create_users_table.php
+xxxx_xx_xx_000002_create_jurusans_table.php
+xxxx_xx_xx_000003_create_periodes_table.php
+xxxx_xx_xx_000004_create_siswas_table.php
+xxxx_xx_xx_000005_create_kriterias_table.php
+xxxx_xx_xx_000006_create_ahp_perbandingans_table.php
+xxxx_xx_xx_000007_create_ahp_hasils_table.php
+xxxx_xx_xx_000008_create_nilais_table.php
+xxxx_xx_xx_000009_create_hasil_rankings_table.php
+```
+
+**Catatan penting:** kalau tabel `users` sudah dibuat oleh Laravel/Breeze, biarkan migration bawaan `users` tetap digunakan dan mulai dari `jurusans`.
+
+Relasi akhirnya menjadi:
+
+```text
+users
+  │
+  │ (Guru/Petugas)
+  │
+  └─────────────────────────────────┐
+
+jurusans                            │
+  │                                 │
+  └───< siswas                      │
+          │                         │
+          ├───< nilais >───┐        │
+          │                │        │
+          └───< hasil_rankings      │
+                                   │
+periodes                           │
+  │                                │
+  ├───< nilais >───────────────────┘
+  │
+  └───< hasil_rankings
+
+kriterias
+  │
+  ├───< ahp_perbandingans
+  │
+  └───< nilais
+
+ahp_hasils
+  │
+  └───< hasil_rankings
+```
+
+Dengan struktur ini, **AHP menghasilkan bobot pada `kriterias` dan menyimpan riwayat perhitungannya di `ahp_hasils`**, sedangkan **SAW menggunakan nilai siswa dari `nilais` + bobot AHP untuk menghasilkan `hasil_rankings`**.

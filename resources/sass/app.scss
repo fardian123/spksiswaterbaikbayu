@@ -1,0 +1,23 @@
+// Fonts
+@import url('https://fonts.bunny.net/css?family=Nunito');
+
+// Variables
+@import 'variables';
+
+// Bootstrap
+@import 'bootstrap/scss/bootstrap';
+@import 'bootstrap/scss/bootstrap';
+.sidebar {
+  --bs-offcanvas-bg: #1f2937;
+  --bs-offcanvas-color: #e5e7eb;
+  --bs-offcanvas-width: 260px;
+   background-color: #1f2937 !important;   /* mode layar kecil (offcanvas) */
+}
+.sidebar .nav-link { color: #cbd5e1; border-radius: .5rem; }
+.sidebar .nav-link:hover { background: #374151; color: #fff; }
+.sidebar .nav-link.active { background: #2563eb; color: #fff; }
+
+@include media-breakpoint-up(md) {
+  .sidebar-wrap { width: 250px; flex-shrink: 0; background: #1f2937; }
+  .sidebar { position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+}
